@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>จุดผ่านแดนไทย-กัมพูชา</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Kanit', sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        header {
+            background-color: #2c3e50;
+            color: white;
+            padding: 15px;
+            text-align: center;
+        }
+        
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+        
+        #sidebar {
+            width: 250px;
+            background-color: #f8f9fa;
+            border-right: 1px solid #ddd;
+            overflow-y: auto;
+            transition: all 0.3s;
+        }
+        
+        #sidebar.collapsed {
+            width: 40px;
+        }
+        
+        #map {
+            flex: 1;
+            height: 100%;
+        }
+        
+        .sidebar-header {
+            padding: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background-color: #34495e;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .toggle-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            padding: 0 5px;
+        }
+        
+        .province-group {
+            margin-bottom: 8px;
+        }
+        
+        .province-header {
+            padding: 8px 10px;
+            background-color: #3498db;
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .border-points {
+            padding: 3px 0;
+            display: none;
+        }
+        
+        .border-points.show {
+            display: block;
+        }
+        
+        .border-point {
+            padding: 6px 10px 6px 20px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .border-point:hover {
+            background-color: #e9ecef;
+        }
+        
+        .border-point.active {
+            background-color: #d4edda;
+        }
+        
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 8px;
+            border-radius: 5px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.2);
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        
+        .map-type-btn {
+            padding: 4px 8px;
+            margin: 2px;
+            background-color: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            cursor: pointer;
+            display: block;
+            width: 100%;
+            text-align: left;
+            font-size: 12px;
+        }
+        
+        .map-type-btn.active {
+            background-color: #3498db;
+            color: white;
+        }
+        
+        .map-controls h3 {
+            margin: 3px 0;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        /* สไตล์สำหรับ marker สีแดง */
+        .red-icon {
+            background-color: red;
+            border: 2px solid white;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            font-size: 12px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.5);
+        }
+        
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+            
+            #sidebar {
+                width: 100%;
+                height: 180px;
+            }
+            
+            #sidebar.collapsed {
+                width: 100%;
+                height: 36px;
+            }
+            
+            .map-controls {
+                top: auto;
+                bottom: 10px;
+                right: 10px;
+                max-height: 120px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>จุดผ่านแดนไทย-กัมพูชา</h1>
+    </header>
+    
+    <div class="container">
+        <div id="sidebar">
+            <div class="sidebar-header">
+                <span id="sidebar-title">จังหวัด</span>
+                <button class="toggle-btn" id="toggleSidebar" title="ซ่อน/แสดงเมนู">
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+            </div>
+            
+            <div class="province-group">
+                <div class="province-header" onclick="toggleProvince('อุบลราชธานี')" title="อุบลราชธานี">
+                    <span>อุบลราชธานี</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="border-points" id="อุบลราชธานี-points">
+                    <div class="border-point" onclick="zoomToPoint(0)" title="จุดผ่อนปรนช่องตาอู">1. จุดผ่อนปรนช่องตาอู</div>
+                    <div class="border-point" onclick="zoomToPoint(1)" title="ช่องอ่านม้า">2. ช่องอ่านม้า</div>
+                </div>
+            </div>
+            
+            <div class="province-group">
+                <div class="province-header" onclick="toggleProvince('ศรีสะเกษ')" title="ศรีสะเกษ">
+                    <span>ศรีสะเกษ</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="border-points" id="ศรีสะเกษ-points">
+                    <div class="border-point" onclick="zoomToPoint(2)" title="ช่องทางขึ้นเขาพระวิหาร">3. ช่องทางขึ้นเขาพระวิหาร</div>
+                </div>
+            </div>
+            
+            <div class="province-group">
+                <div class="province-header" onclick="toggleProvince('สุรินทร์')" title="สุรินทร์">
+                    <span>สุรินทร์</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="border-points" id="สุรินทร์-points">
+                    <div class="border-point" onclick="zoomToPoint(3)" title="ช่องสะงำ">4. ช่องสะงำ</div>
+                    <div class="border-point" onclick="zoomToPoint(4)" title="จุดผ่านแดนช่องจอม">5. จุดผ่านแดนช่องจอม</div>
+                </div>
+            </div>
+            
+            <div class="province-group">
+                <div class="province-header" onclick="toggleProvince('บุรีรัมย์')" title="บุรีรัมย์">
+                    <span>บุรีรัมย์</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="border-points" id="บุรีรัมย์-points">
+                    <div class="border-point" onclick="zoomToPoint(5)" title="ช่องสายตะกู">6. ช่องสายตะกู</div>
+                </div>
+            </div>
+            
+            <div class="province-group">
+                <div class="province-header" onclick="toggleProvince('สระแก้ว')" title="สระแก้ว">
+                    <span>สระแก้ว</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="border-points" id="สระแก้ว-points">
+                    <div class="border-point" onclick="zoomToPoint(6)" title="จุดผ่อนปรนทางการค้าบ้านตาพระยา">7. จุดผ่อนปรนทางการค้าบ้านตาพระยา</div>
+                    <div class="border-point" onclick="zoomToPoint(7)" title="ด่านพรมแดนบ้านคลองลึก">8. ด่านพรมแดนบ้านคลองลึก</div>
+                    <div class="border-point" onclick="zoomToPoint(8)" title="บ้านหนองเอี่ยน-สะตึงบท">9. บ้านหนองเอี่ยน-สะตึงบท</div>
+                    <div class="border-point" onclick="zoomToPoint(9)" title="จุดผ่อนปรนบ้านหนองปรือ">10. จุดผ่อนปรนบ้านหนองปรือ</div>
+                    <div class="border-point" onclick="zoomToPoint(10)" title="บ้านเขาดิน คลองหาด">11. บ้านเขาดิน คลองหาด</div>
+                </div>
+            </div>
+            
+            <div class="province-group">
+                <div class="province-header" onclick="toggleProvince('จันทบุรี')" title="จันทบุรี">
+                    <span>จันทบุรี</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="border-points" id="จันทบุรี-points">
+                    <div class="border-point" onclick="zoomToPoint(11)" title="บ้านซับตารี อ.สอยดาว">12. บ้านซับตารี</div>
+                    <div class="border-point" onclick="zoomToPoint(12)" title="บ้านสวนส้ม อ.สอยดาว">13. บ้านสวนส้ม</div>
+                    <div class="border-point" onclick="zoomToPoint(13)" title="ด่านพรมแดนบ้านแหลม">14. ด่านพรมแดนบ้านแหลม</div>
+                    <div class="border-point" onclick="zoomToPoint(14)" title="บ้านบึงชนังล่าง">15. บ้านบึงชนังล่าง</div>
+                    <div class="border-point" onclick="zoomToPoint(15)" title="จุดผ่านแดนถาวรบ้านผักกาด">16. จุดผ่านแดนถาวรบ้านผักกาด</div>
+                </div>
+            </div>
+            
+            <div class="province-group">
+                <div class="province-header" onclick="toggleProvince('ตราด')" title="ตราด">
+                    <span>ตราด</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+                <div class="border-points" id="ตราด-points">
+                    <div class="border-point" onclick="zoomToPoint(16)" title="บ้านหมื่นด่าน">17. บ้านหมื่นด่าน</div>
+                    <div class="border-point" onclick="zoomToPoint(17)" title="บ้านมะม่วง">18. บ้านมะม่วง</div>
+                </div>
+            </div>
+        </div>
+        
+        <div id="map"></div>
+        
+        <div class="map-controls">
+            <h3>รูปแบบแผนที่</h3>
+            <button class="map-type-btn active" onclick="changeMapType('google-maps')">Google Maps</button>
+            <button class="map-type-btn" onclick="changeMapType('google-hybrid')">Google Hybrid</button>
+            <button class="map-type-btn" onclick="changeMapType('osm')">OpenStreetMap</button>
+            <button class="map-type-btn" onclick="changeMapType('carto-light')">Carto Light</button>
+            <button class="map-type-btn" onclick="changeMapType('carto-dark')">Carto Dark</button>
+            <button class="map-type-btn" onclick="changeMapType('esri-sat')">Esri Satellite</button>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // ข้อมูลจุดผ่านแดนจากไฟล์ KML
+        const borderPoints = [
+            {no: 1, name: 'จุดผ่อนปรนช่องตาอู', lat: 14.703599, lng: 105.524691, province: 'อุบลราชธานี'},
+            {no: 2, name: 'ช่องอ่านม้า', lat: 14.388195, lng: 104.965615, province: 'อุบลราชธานี'},
+            {no: 3, name: 'ช่องทางขึ้นเขาพระวิหาร', lat: 14.403239, lng: 104.686629, province: 'ศรีสะเกษ'},
+            {no: 4, name: 'ช่องสะงำ', lat: 14.345339, lng: 104.058214, province: 'สุรินทร์'},
+            {no: 5, name: 'จุดผ่านแดนช่องจอม', lat: 14.434623, lng: 103.699995, province: 'สุรินทร์'},
+            {no: 6, name: 'ช่องสายตะกู', lat: 14.335962, lng: 103.175796, province: 'บุรีรัมย์'},
+            {no: 7, name: 'จุดผ่อนปรนทางการค้าบ้านตาพระยา', lat: 13.987752, lng: 102.847795, province: 'สระแก้ว'},
+            {no: 8, name: 'ด่านพรมแดนบ้านคลองลึก', lat: 13.661028, lng: 102.550585, province: 'สระแก้ว'},
+            {no: 9, name: 'บ้านหนองเอี่ยน-สะตึงบท', lat: 13.615455, lng: 102.609896, province: 'สระแก้ว'},
+            {no: 10, name: 'จุดผ่อนปรนบ้านหนองปรือ', lat: 13.572843, lng: 102.362305, province: 'สระแก้ว'},
+            {no: 11, name: 'บ้านเขาดิน คลองหาด', lat: 13.432326, lng: 102.358454, province: 'สระแก้ว'},
+            {no: 12, name: 'บ้านซับตารี อ.สอยดาว', lat: 13.222466, lng: 102.379682, province: 'จันทบุรี'},
+            {no: 13, name: 'บ้านสวนส้ม อ.สอยดาว', lat: 13.178433, lng: 102.392751, province: 'จันทบุรี'},
+            {no: 14, name: 'ด่านพรมแดนบ้านแหลม', lat: 13.086541, lng: 102.445297, province: 'จันทบุรี'},
+            {no: 15, name: 'บ้านบึงชนังล่าง', lat: 13.046842, lng: 102.477139, province: 'จันทบุรี'},
+            {no: 16, name: 'จุดผ่านแดนถาวรบ้านผักกาด', lat: 12.927005, lng: 102.493962, province: 'จันทบุรี'},
+            {no: 17, name: 'บ้านหมื่นด่าน', lat: 12.616163, lng: 102.616459, province: 'ตราด'},
+            {no: 18, name: 'บ้านมะม่วง', lat: 12.546718, lng: 102.682364, province: 'ตราด'}
+        ];
+
+        // ตัวแปรแผนที่
+        let map;
+        let markers = [];
+        let currentLayer;
+        let baseLayers = {
+            "google-maps": L.tileLayer('https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}', { 
+                maxZoom: 19,
+                attribution: 'Map data &copy; Google'
+            }),
+            "google-hybrid": L.tileLayer('https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}', { 
+                maxZoom: 19,
+                attribution: 'Map data &copy; Google'
+            }),
+            "osm": L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { 
+                maxZoom: 19,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }),
+            "carto-light": L.tileLayer('https://basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png', { 
+                maxZoom: 20,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            }),
+            "carto-dark": L.tileLayer('https://basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png', { 
+                maxZoom: 20,
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            }),
+            "esri-sat": L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', { 
+                maxZoom: 17,
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community'
+            })
+        };
+
+        // สร้าง marker สีแดงแบบ custom
+        function createRedMarkerIcon(point) {
+            return L.divIcon({
+                className: 'red-icon',
+                html: point.no,
+                iconSize: [24, 24]
+            });
+        }
+
+        // เริ่มต้นแผนที่
+        function initMap() {
+            map = L.map('map').setView([13.5, 103.0], 7);
+            
+            // เลือกแผนที่เริ่มต้น
+            changeMapType('google-maps');
+            
+            // เพิ่มจุดผ่านแดน
+            addBorderPoints();
+            
+            // เปิดเมนูจังหวัดแรกโดยอัตโนมัติ
+            toggleProvince('อุบลราชธานี');
+        }
+
+        // เพิ่มจุดผ่านแดนบนแผนที่
+        function addBorderPoints() {
+            // ล้าง marker เก่า (ถ้ามี)
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            // สร้าง marker ใหม่
+            borderPoints.forEach((point, index) => {
+                const marker = L.marker([point.lat, point.lng], {
+                    title: point.name,
+                    icon: createRedMarkerIcon(point)
+                }).addTo(map)
+                .bindPopup(`
+                    <b>${point.no}. ${point.name}</b><br>
+                    <b>จังหวัด:</b> ${point.province}<br>
+                    <b>พิกัด:</b> ${point.lat.toFixed(6)}, ${point.lng.toFixed(6)}
+                `);
+                
+                marker.on('click', () => {
+                    // ไฮไลต์จุดที่เลือกในเมนู
+                    document.querySelectorAll('.border-point').forEach(el => {
+                        el.classList.remove('active');
+                    });
+                    document.querySelectorAll('.border-point')[index].classList.add('active');
+                });
+                
+                markers.push(marker);
+            });
+        }
+
+        // เปลี่ยนประเภทแผนที่
+        function changeMapType(type) {
+            // ออกแบบ layer เดิม
+            if (currentLayer) {
+                map.removeLayer(currentLayer);
+            }
+            
+            // ตั้งค่า layer ใหม่
+            currentLayer = baseLayers[type].addTo(map);
+            
+            // อัพเดตปุ่ม active
+            document.querySelectorAll('.map-type-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            document.querySelector(`.map-type-btn[onclick="changeMapType('${type}')"]`).classList.add('active');
+        }
+
+        // ซูมไปยังจุดที่เลือก
+        function zoomToPoint(index) {
+            const point = borderPoints[index];
+            map.setView([point.lat, point.lng], 14);
+            
+            // เปิด popup
+            markers[index].openPopup();
+            
+            // ไฮไลต์จุดที่เลือก
+            document.querySelectorAll('.border-point').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.querySelectorAll('.border-point')[index].classList.add('active');
+        }
+
+        // เปิด/ปิดเมนูจังหวัด
+        function toggleProvince(province) {
+            const pointsElement = document.getElementById(`${province}-points`);
+            const headerElement = pointsElement.previousElementSibling;
+            const icon = headerElement.querySelector('i');
+            
+            if (pointsElement.classList.contains('show')) {
+                pointsElement.classList.remove('show');
+                icon.classList.remove('fa-chevron-up');
+                icon.classList.add('fa-chevron-down');
+            } else {
+                pointsElement.classList.add('show');
+                icon.classList.remove('fa-chevron-down');
+                icon.classList.add('fa-chevron-up');
+            }
+        }
+
+        // ซ่อน/แสดงเมนูด้านข้าง
+        document.getElementById('toggleSidebar').addEventListener('click', function() {
+            const sidebar = document.getElementById('sidebar');
+            const icon = this.querySelector('i');
+            const sidebarTitle = document.getElementById('sidebar-title');
+            
+            sidebar.classList.toggle('collapsed');
+            
+            if (sidebar.classList.contains('collapsed')) {
+                icon.classList.remove('fa-chevron-left');
+                icon.classList.add('fa-chevron-right');
+                sidebarTitle.style.display = 'none';
+            } else {
+                icon.classList.remove('fa-chevron-right');
+                icon.classList.add('fa-chevron-left');
+                sidebarTitle.style.display = 'inline';
+            }
+        });
+
+        // เริ่มต้นแผนที่เมื่อโหลดหน้าเว็บ
+        window.onload = initMap;
+    </script>
+</body>
+</html>
